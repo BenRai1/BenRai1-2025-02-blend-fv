@@ -3,7 +3,8 @@ use soroban_sdk::{panic_with_error, Address, Env};
 
 
 #[cfg(feature = "certora")]
-use crate::certora_specs::mocks::token::TokenClient;
+use crate::certora_specs::{ mocks::token::TokenClient, summaries::token_sum::transfer_mock, summaries::token_sum::transfer_from_mock};
+
 #[cfg(not(feature = "certora"))]
 use sep_41_token::TokenClient;
 
@@ -13,7 +14,7 @@ use super::require_is_from_pool_factory;
 ///
 /// `pool_address` MUST be authenticated before calling
 pub fn execute_draw(e: &Env, pool_address: &Address, amount: i128, to: &Address) {
-    require_nonnegative(e, amount);
+    //require_nonnegative(e, amount);
 
     let mut pool_balance = storage::get_pool_balance(e, pool_address);
 
@@ -21,7 +22,13 @@ pub fn execute_draw(e: &Env, pool_address: &Address, amount: i128, to: &Address)
     storage::set_pool_balance(e, pool_address, &pool_balance);
 
     let backstop_token = TokenClient::new(e, &storage::get_backstop_token(e));
+
+    #[cfg(not(feature = "certora"))] 
     backstop_token.transfer(&e.current_contract_address(), to, &amount);
+
+    #[cfg(feature = "certora")]
+    transfer_mock(&e.current_contract_address(), to, &amount); 
+
 }
 
 /// Perform a donation to a pool's backstop
@@ -35,12 +42,17 @@ pub fn execute_donate(e: &Env, from: &Address, pool_address: &Address, amount: i
     require_is_from_pool_factory(e, pool_address, pool_balance.shares);
 
     let backstop_token = TokenClient::new(e, &storage::get_backstop_token(e));
+
+     #[cfg(not(feature = "certora"))]
     backstop_token.transfer_from(
         &e.current_contract_address(),
         from,
         &e.current_contract_address(),
         &amount,
     );
+
+    #[cfg(feature = "certora")]
+    transfer_from_mock(&e.current_contract_address(), from, &e.current_contract_address(), &amount);
 
     pool_balance.deposit(amount, 0);
     storage::set_pool_balance(e, pool_address, &pool_balance);

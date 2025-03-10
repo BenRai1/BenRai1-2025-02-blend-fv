@@ -1,3 +1,4 @@
+use cvlr::clog;
 use cvlr_soroban::nondet_vec;
 use soroban_sdk::{contracttype, panic_with_error, vec, Env, Vec};
 
@@ -56,6 +57,8 @@ impl UserBalance {
     /// ### Arguments
     /// * `to_add` - The amount of new shares the user has
     pub fn add_shares(&mut self, to_add: i128) {
+        clog!(self.shares as i64);
+        clog!(to_add as i64);
         self.shares += to_add;
     }
 
@@ -71,6 +74,8 @@ impl UserBalance {
     /// ### Errors
     /// If the amount to queue is greater than the available shares
     pub fn queue_shares_for_withdrawal(&mut self, e: &Env, to_q: i128) {
+        clog!(self.shares as u64);
+        clog!(to_q as u64);
         if self.shares < to_q {
             panic_with_error!(e, BackstopError::BalanceError);
         }
@@ -78,6 +83,9 @@ impl UserBalance {
             panic_with_error!(e, BackstopError::TooManyQ4WEntries);
         }
         self.shares = self.shares - to_q;
+
+        let shares_after = self.shares; //LOG
+        clog!(shares_after as u64); //LOG
 
         // user has enough tokens to withdrawal, add Q4W
         let new_q4w = Q4W {
@@ -99,6 +107,15 @@ impl UserBalance {
         // validate the invoke has enough unlocked Q4W to claim
         // manage the q4w list while verifying
         let mut left_to_withdraw: i128 = to_withdraw;
+        clog!(left_to_withdraw as i64);
+        clog!(self.q4w.len());
+        clog!(e.ledger().timestamp() as i64);
+        clog!(self.q4w.get(0).unwrap().exp as i64);
+        clog!(self.q4w.get(0).unwrap().amount as i64);
+        clog!(self.q4w.get(1).unwrap().exp as i64);
+        clog!(self.q4w.get(1).unwrap().amount as i64);
+        clog!(self.q4w.get(2).unwrap().exp as i64);
+        clog!(self.q4w.get(2).unwrap().amount as i64);
         for _index in 0..self.q4w.len() {
             let mut cur_q4w = self.q4w.pop_front_unchecked();
             if cur_q4w.exp <= e.ledger().timestamp() {
@@ -120,10 +137,11 @@ impl UserBalance {
                 panic_with_error!(e, BackstopError::NotExpired);
             }
         }
-
+        clog!(left_to_withdraw as i64);
         if left_to_withdraw > 0 {
             panic_with_error!(e, BackstopError::BalanceError);
         }
+        clog!(left_to_withdraw as i64);
     }
 
     /// Dequeue shares from the withdrawal queue. Dequeues the most recently queued shares first.
@@ -139,6 +157,7 @@ impl UserBalance {
         // validate the invoke has enough unlocked Q4W to claim
         // manage the q4w list while verifying
         let mut left_to_dequeue: i128 = to_dequeue;
+        clog!(self.q4w.len());
         for _index in 0..self.q4w.len() {
             let mut cur_q4w = self.q4w.pop_back_unchecked();
             if cur_q4w.amount > left_to_dequeue {

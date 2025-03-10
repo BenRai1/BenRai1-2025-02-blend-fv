@@ -1,10 +1,11 @@
-use crate::{contract::require_nonnegative, emissions, storage, BackstopError};
+use crate::{certora_specs::summaries::token_sum::transfer_mock, contract::require_nonnegative, emissions, storage, BackstopError};
 
-
-#[cfg(feature = "certora")]
-use crate::certora_specs::mocks::token::TokenClient;
 #[cfg(not(feature = "certora"))]
 use sep_41_token::TokenClient;
+#[cfg(feature = "certora")]
+use crate::certora_specs::mocks::token::TokenClient;
+use crate::certora_specs::summaries::emissions::update_emissions_mock;
+use cvlr::clog;
 
 use soroban_sdk::{panic_with_error, unwrap::UnwrapOptimized, Address, Env};
 
@@ -17,21 +18,41 @@ pub fn execute_queue_withdrawal(
     pool_address: &Address,
     amount: i128,
 ) -> Q4W {
+    clog!(amount as i64); //@audit added to log
     require_nonnegative(e, amount);
 
     let mut pool_balance = storage::get_pool_balance(e, pool_address);
     let mut user_balance = storage::get_user_balance(e, pool_address, from);
+    // clog!(user_balance.shares as i64);
+    // clog!(user_balance.q4w.len() as i64);
+
 
     // update emissions
-    #[cfg(not(feature = "certora"))]
+    #[cfg(not(feature = "certora"))] //@audit added to skip the following line and prevent time outs
     emissions::update_emissions(e, pool_address, &pool_balance, from, &user_balance);
 
+    #[cfg(feature = "certora")]
+    update_emissions_mock(e, pool_address, &pool_balance, from, &user_balance);
+
+
     user_balance.queue_shares_for_withdrawal(e, amount);
+
+    //logs
+    clog!(user_balance.q4w.last().unwrap_optimized().exp); //@audit added to log
+    clog!(user_balance.q4w.last().unwrap_optimized().amount as i64); //@audit added to log
+    clog!(user_balance.q4w.len() as i64); //@audit added to log
+    //
+
     pool_balance.queue_for_withdraw(amount);
 
     storage::set_user_balance(e, pool_address, from, &user_balance);
     storage::set_pool_balance(e, pool_address, &pool_balance);
 
+
+    //logs
+    // clog!(user_balance.q4w.last().unwrap_optimized().exp); //@audit added to log
+    // clog!(user_balance.q4w.last().unwrap_optimized().amount as i64); //@audit added to log
+    //
     user_balance.q4w.last().unwrap_optimized()
 }
 
@@ -41,9 +62,15 @@ pub fn execute_dequeue_withdrawal(e: &Env, from: &Address, pool_address: &Addres
 
     let mut pool_balance = storage::get_pool_balance(e, pool_address);
     let mut user_balance = storage::get_user_balance(e, pool_address, from);
+    clog!(user_balance.shares as i64); //@audit added to log
+    clog!(user_balance.q4w.len() as i64); //@audit added to log
 
-    // update emissions
+    // update emissions //@audit commented out to see if issue is in cfg
+     #[cfg(not(feature = "certora"))] 
     emissions::update_emissions(e, pool_address, &pool_balance, from, &user_balance);
+
+    #[cfg(feature = "certora")]
+    update_emissions_mock(e, pool_address, &pool_balance, from, &user_balance);
 
     user_balance.dequeue_shares(e, amount);
     user_balance.add_shares(amount);
@@ -51,6 +78,8 @@ pub fn execute_dequeue_withdrawal(e: &Env, from: &Address, pool_address: &Addres
 
     storage::set_user_balance(e, pool_address, from, &user_balance);
     storage::set_pool_balance(e, pool_address, &pool_balance);
+    clog!(user_balance.shares as i64); //@audit added to log
+    clog!(user_balance.q4w.len() as i64); //@audit added to log
 }
 
 /// Perform a withdraw from the backstop module
@@ -63,8 +92,9 @@ pub fn execute_withdraw(e: &Env, from: &Address, pool_address: &Address, amount:
     user_balance.withdraw_shares(e, amount);
 
     let to_return = pool_balance.convert_to_tokens(amount);
+    clog!(to_return as i64); //@audit added to log
     if to_return == 0 {
-        panic_with_error!(e, &BackstopError::InvalidTokenWithdrawAmount);
+        panic_with_error!(e, &BackstopError::InvalidTokenWithdrawAmount); //@audit-issue nont tested yet
     }
     pool_balance.withdraw(e, to_return, amount);
 
@@ -72,7 +102,12 @@ pub fn execute_withdraw(e: &Env, from: &Address, pool_address: &Address, amount:
     storage::set_pool_balance(e, pool_address, &pool_balance);
 
     let backstop_token_client = TokenClient::new(e, &storage::get_backstop_token(e));
+    
+    #[cfg(not(feature = "certora"))]
     backstop_token_client.transfer(&e.current_contract_address(), from, &to_return);
+
+    #[cfg(feature = "certora")]
+    transfer_mock(&e.current_contract_address(), from, &to_return);
 
     to_return
 }

@@ -1,12 +1,17 @@
+use cvlr::clog;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{contracttype, panic_with_error, unwrap::UnwrapOptimized, Address, Env};
 
 use crate::{
-    constants::SCALAR_7,
-    dependencies::{CometClient, PoolFactoryClient},
-    errors::BackstopError,
-    storage,
+    constants::SCALAR_7, 
+    dependencies::{CometClient, PoolFactoryClient}, 
+    errors::BackstopError, 
+    storage
 };
+#[cfg(feature = "certora")]
+use crate::certora_specs::{self, mocks::{self, pool_factory::*}};
+use crate::certora_specs::summaries::rounding;
+use crate::certora_specs::{GHOST_POOL_TOTAL_SUPPLY, GHOST_POOL_BLND_BALANCE, GHOST_POOL_USDC_BALANCE};
 
 /// The pool's backstop data
 #[derive(Clone)]
@@ -29,44 +34,72 @@ impl cvlr::nondet::Nondet for PoolBackstopData {
     }
 }
 
+// // #[cfg(feature = "certora")] //@audit added
+// pub static mut GHOST_IS_POOL: GhostMap<Address, bool> = GhostMap::UnInit;
+
+
 pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
     let pool_balance = storage::get_pool_balance(e, address);
     let q4w_pct = if pool_balance.shares > 0 {
-        pool_balance
-            .q4w
-            .fixed_div_ceil(pool_balance.shares, SCALAR_7)
-            .unwrap_optimized()
+
+        #[cfg(not(feature = "certora"))] //@audit skip the next line
+        pool_balance.q4w.fixed_div_ceil(pool_balance.shares, SCALAR_7).unwrap_optimized();
+
+        #[cfg(feature = "certora")] //@audit call this instead
+        rounding::fixed_div_ceil(pool_balance.q4w, pool_balance.shares, SCALAR_7)
+
     } else {
         0
     };
 
     if pool_balance.tokens > 0 {
+        #[cfg(not(feature = "certora"))]
         let backstop_token = storage::get_backstop_token(e);
+        #[cfg(not(feature = "certora"))]
         let blnd_token = storage::get_blnd_token(e);
+        #[cfg(not(feature = "certora"))]
         let usdc_token = storage::get_usdc_token(e);
+        #[cfg(not(feature = "certora"))]
         let comet_client = CometClient::new(e, &backstop_token);
+        #[cfg(not(feature = "certora"))]
         let total_comet_shares = comet_client.get_total_supply();
+        #[cfg(not(feature = "certora"))]
         let total_blnd = comet_client.get_balance(&blnd_token);
+        #[cfg(not(feature = "certora"))]
         let total_usdc = comet_client.get_balance(&usdc_token);
+        
+        #[cfg(feature = "certora")]
+        let total_comet_shares = unsafe{GHOST_POOL_TOTAL_SUPPLY};
+        #[cfg(feature = "certora")]
+        let total_blnd = unsafe{GHOST_POOL_BLND_BALANCE};
+        #[cfg(feature = "certora")]
+            let total_usdc = unsafe{GHOST_POOL_USDC_BALANCE};
 
         // underlying per LP token
-        let blnd_per_tkn = total_blnd
-            .fixed_div_floor(total_comet_shares, SCALAR_7)
-            .unwrap_optimized();
-        let usdc_per_tkn = total_usdc
-            .fixed_div_floor(total_comet_shares, SCALAR_7)
-            .unwrap_optimized();
+        #[cfg(not(feature = "certora"))]
+        let blnd_per_tkn = total_blnd.fixed_div_floor(total_comet_shares, SCALAR_7).unwrap_optimized();
+        #[cfg(feature = "certora")]
+        let blnd_per_tkn = rounding::fixed_div_floor(total_blnd, total_comet_shares, SCALAR_7);
+        
+        #[cfg(not(feature = "certora"))]
+        let usdc_per_tkn = total_usdc.fixed_div_floor(total_comet_shares, SCALAR_7).unwrap_optimized();
+        #[cfg(feature = "certora")]
+        let usdc_per_tkn = rounding::fixed_div_floor(total_usdc, total_comet_shares, SCALAR_7);
 
-        let blnd = pool_balance
-            .tokens
-            .fixed_mul_floor(blnd_per_tkn, SCALAR_7)
-            .unwrap_optimized();
-        let usdc = pool_balance
-            .tokens
-            .fixed_mul_floor(usdc_per_tkn, SCALAR_7)
-            .unwrap_optimized();
+        #[cfg(not(feature = "certora"))]
+        let blnd = pool_balance.tokens.fixed_mul_floor(blnd_per_tkn, SCALAR_7).unwrap_optimized();
+        #[cfg(feature = "certora")]
+        let blnd = rounding::fixed_mul_floor(pool_balance.tokens, blnd_per_tkn, SCALAR_7);
+
+        #[cfg(not(feature = "certora"))]
+        let usdc = pool_balance.tokens.fixed_mul_floor(usdc_per_tkn, SCALAR_7).unwrap_optimized();
+        #[cfg(feature = "certora")]
+        let usdc = rounding::fixed_mul_floor(pool_balance.tokens, usdc_per_tkn, SCALAR_7);
+
+
+
         PoolBackstopData {
-            tokens: pool_balance.tokens,
+            tokens: pool_balance.tokens +1,
             q4w_pct,
             blnd,
             usdc,
@@ -91,14 +124,26 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
 ///
 /// ### Panics
 /// If the pool address cannot be verified
-pub fn require_is_from_pool_factory(e: &Env, address: &Address, balance: i128) {
+pub fn require_is_from_pool_factory(e: &Env, address: &Address, balance: i128) { //@audit-issue GHOST implementation breaks other rules
     if balance == 0 {
+        #[cfg(not(feature = "certora"))]
         let pool_factory_client = PoolFactoryClient::new(e, &storage::get_pool_factory(e));
+        #[cfg(feature = "certora")] //@audit added for ghost
+        let pool_factory_client = mocks::pool_factory::PoolFactoryClient::new(e, address);
         if !pool_factory_client.is_pool(address) {
             panic_with_error!(e, BackstopError::NotPool);
         }
     }
 }
+
+// pub fn require_is_from_pool_factory(e: &Env, address: &Address, balance: i128) { //@audit-issue original which does not break stuff
+//     if balance == 0 {
+//         let pool_factory_client = PoolFactoryClient::new(e, &storage::get_pool_factory(e));
+//         if !pool_factory_client.is_pool(address) {
+//             panic_with_error!(e, BackstopError::NotPool);
+//         }
+//     }
+// }
 
 /// Calculate the threshold for the pool's backstop balance
 ///
@@ -112,14 +157,14 @@ pub fn require_pool_above_threshold(pool_backstop_data: &PoolBackstopData) -> bo
     let threshold_pc = 10_000_000_000_000_000_000_000_000i128; // 1e25 (100k^5)
 
     // floor balances to nearest full unit and calculate saturated pool product constant
-    let bal_blnd = pool_backstop_data.blnd / SCALAR_7;
-    let bal_usdc = pool_backstop_data.usdc / SCALAR_7;
-    let saturating_pool_pc = bal_blnd
-        .saturating_mul(bal_blnd)
+    let bal_blnd = pool_backstop_data.blnd / SCALAR_7; //i: get full unit
+    let bal_usdc = pool_backstop_data.usdc / SCALAR_7; //@audit-issue does usdc have 7 decimals
+    let saturating_pool_pc = bal_blnd //saturation pool percentage
+        .saturating_mul(bal_blnd) //i: Performs multiplication that saturates at the numeric bounds instead of overflowing
         .saturating_mul(bal_blnd)
         .saturating_mul(bal_blnd)
         .saturating_mul(bal_usdc);
-    saturating_pool_pc >= threshold_pc
+    saturating_pool_pc < threshold_pc
 }
 
 /// The pool's backstop balances
@@ -130,6 +175,16 @@ pub struct PoolBalance {
     pub tokens: i128, // the number of tokens the pool holds in the backstop
     pub q4w: i128,    // the number of shares queued for withdrawal
 }
+impl cvlr::nondet::Nondet for PoolBalance {
+    fn nondet() -> Self {
+        Self {
+            shares: cvlr::nondet(),
+            tokens: cvlr::nondet(),
+            q4w: cvlr::nondet()
+        }
+    }
+}
+
 
 impl PoolBalance {
     /// Convert a token balance to a share balance based on the current pool state
@@ -137,11 +192,15 @@ impl PoolBalance {
     /// ### Arguments
     /// * `tokens` - the token balance to convert
     pub fn convert_to_shares(&self, tokens: i128) -> i128 {
+        clog!(tokens as i64);
+        clog!(self.shares as i64);
+        clog!(self.tokens as i64);
+        clog!(self.q4w as i64);
         if self.shares == 0 {
             return tokens;
         }
 
-        tokens
+        tokens 
             .fixed_mul_floor(self.shares, self.tokens)
             .unwrap_optimized()
     }
@@ -151,6 +210,10 @@ impl PoolBalance {
     /// ### Arguments
     /// * `shares` - the pool share balance to convert
     pub fn convert_to_tokens(&self, shares: i128) -> i128 {
+        clog!(shares as i64);
+        clog!(self.shares as i64);
+        clog!(self.tokens as i64);
+        clog!(self.q4w as i64);
         if self.shares == 0 {
             return shares;
         }
@@ -162,6 +225,11 @@ impl PoolBalance {
 
     /// Determine the amount of effective tokens (not queued for withdrawal) in the pool
     pub fn non_queued_tokens(&self) -> i128 {
+        clog!(self.shares as i64); // LOG
+        clog!(self.tokens as i64); // LOG
+        clog!(self.q4w as i64); // LOG
+        let q4w_tokens = self.convert_to_tokens(self.q4w); // LOG
+        clog!(q4w_tokens as i64); // LOG
         self.tokens - self.convert_to_tokens(self.q4w)
     }
 
