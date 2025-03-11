@@ -14,7 +14,7 @@ use super::require_is_from_pool_factory;
 ///
 /// `pool_address` MUST be authenticated before calling
 pub fn execute_draw(e: &Env, pool_address: &Address, amount: i128, to: &Address) {
-    //require_nonnegative(e, amount);
+    require_nonnegative(e, amount);
 
     let mut pool_balance = storage::get_pool_balance(e, pool_address);
 

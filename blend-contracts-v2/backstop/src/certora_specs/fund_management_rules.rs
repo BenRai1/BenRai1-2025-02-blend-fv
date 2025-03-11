@@ -33,6 +33,68 @@ pub fn balances_less_than_total_supply( a: i128, b: i128, c: i128) {
 
 
 
+    // execute_draw() pool.shares and pool.q4w do not change
+    #[rule]
+    pub fn donate_pool_shares_q4w_not_change(e: &Env) {
+        let from: Address = nondet_address();
+        let pool_address: Address = nondet_address();
+        let amount: i128 = nondet();
+        //setup
+        let pool_balance = storage::get_pool_balance(e, &pool_address);
+        let pool_shares_before = pool_balance.shares;
+        let pool_q4w_before = pool_balance.q4w;
+
+        //function call
+        execute_donate(&e, &from, &pool_address, amount);
+
+        //values after
+        let pool_shares_after = storage::get_pool_balance(e, &pool_address).shares;
+        let pool_q4w_after = storage::get_pool_balance(e, &pool_address).q4w;
+
+        //assert
+        cvlr_assert!(pool_shares_after == pool_shares_before);
+        cvlr_assert!(pool_q4w_after == pool_q4w_before);
+    }
+
+
+    
+    
+
+    
+
+
+//------------------------------- RULES TEST END ----------------------------------
+
+//------------------------------- RULES PROBLEMS START ----------------------------------
+
+//------------------------------- RULES PROBLEMS START ----------------------------------
+
+//------------------------------- RULES OK START ------------------------------------
+
+
+    // execute_draw() pool.shares and pool.q4w do not change
+    #[rule]
+    pub fn draw_pool_shares_q4w_not_change(e: &Env) {
+        let pool_address: Address = nondet_address();
+        let amount: i128 = nondet();
+        let to: Address = nondet_address();
+        //setup
+        let pool_balance = storage::get_pool_balance(e, &pool_address);
+        let pool_shares_before = pool_balance.shares;
+        let pool_q4w_before = pool_balance.q4w;
+
+        //function call
+        execute_draw(&e, &pool_address, amount, &to);
+
+        //values after
+        let pool_shares_after = storage::get_pool_balance(e, &pool_address).shares;
+        let pool_q4w_after = storage::get_pool_balance(e, &pool_address).q4w;
+
+        //assert
+        cvlr_assert!(pool_shares_after == pool_shares_before);
+        cvlr_assert!(pool_q4w_after == pool_q4w_before);
+    }
+
     // execute_donate() revert if pool_address is not from the factory
     #[rule]
     pub fn donate_pool_address_not_from_pool_factory(e: &Env) { 
@@ -50,18 +112,6 @@ pub fn balances_less_than_total_supply( a: i128, b: i128, c: i128) {
         //assert this is never reached
         cvlr_assert!(false);
     }
-    
-
-    
-
-
-//------------------------------- RULES TEST END ----------------------------------
-
-//------------------------------- RULES PROBLEMS START ----------------------------------
-
-//------------------------------- RULES PROBLEMS START ----------------------------------
-
-//------------------------------- RULES OK START ------------------------------------
     // execute_donate() reverts if amount is negative
     #[rule]
     pub fn donate_amount_negative(e: &Env, from: &Address, pool_address: &Address, amount: i128) {

@@ -1,4 +1,6 @@
 use crate::{certora_specs::summaries::token_sum::transfer_mock, contract::require_nonnegative, emissions, storage, BackstopError};
+use crate::certora_specs::mocks::conversions;
+use crate::certora_specs::GHOST_TO_RETURN;
 
 #[cfg(not(feature = "certora"))]
 use sep_41_token::TokenClient;
@@ -91,15 +93,20 @@ pub fn execute_withdraw(e: &Env, from: &Address, pool_address: &Address, amount:
 
     user_balance.withdraw_shares(e, amount);
 
+    #[cfg(not(feature = "certora"))]
     let to_return = pool_balance.convert_to_tokens(amount);
-    clog!(to_return as i64); //@audit added to log
+
+    #[cfg(feature = "certora")]
+    let to_return = unsafe{GHOST_TO_RETURN};
+ 
+    // clog!(to_return as i64); //@audit added to log
     if to_return == 0 {
-        panic_with_error!(e, &BackstopError::InvalidTokenWithdrawAmount); //@audit-issue nont tested yet
+        // panic_with_error!(e, &BackstopError::InvalidTokenWithdrawAmount); 
     }
-    pool_balance.withdraw(e, to_return, amount);
+    pool_balance.withdraw(e, to_return+1, amount);
 
     storage::set_user_balance(e, pool_address, from, &user_balance);
-    storage::set_pool_balance(e, pool_address, &pool_balance);
+    storage::set_pool_balance(e, pool_address, &pool_balance); 
 
     let backstop_token_client = TokenClient::new(e, &storage::get_backstop_token(e));
     

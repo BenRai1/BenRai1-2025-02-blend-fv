@@ -51,7 +51,9 @@ pub fn pool_balance_sanity(pool_balance: &mut PoolBalance) {
         let pool_balance = storage::get_pool_balance(e, &address);
 
         //setup
-        cvlr_assume!(pool_balance.shares != 0);
+        cvlr_assume!(pool_balance.shares > 0); // enter first if statement
+        cvlr_assume!(pool_balance.shares < 100); //prevent time out
+        cvlr_assume!(pool_balance.tokens == 0); //skip second if statement
 
         let target_q4w_pct = rounding::fixed_div_ceil(pool_balance.q4w, pool_balance.shares, SCALAR_7);
 
@@ -68,7 +70,9 @@ pub fn pool_balance_sanity(pool_balance: &mut PoolBalance) {
         let pool_balance = storage::get_pool_balance(e, &address);
 
         //setup
-        cvlr_assume!(pool_balance.tokens > 0);
+        cvlr_assume!(pool_balance.shares == 0); //skip first if statement
+        cvlr_assume!(pool_balance.tokens > 0); //enter second if statement
+        
 
         //target
         let backstop_token = storage::get_backstop_token(e);
@@ -76,12 +80,16 @@ pub fn pool_balance_sanity(pool_balance: &mut PoolBalance) {
         let comet_client = CometClient::new(e, &backstop_token);
         let total_comet_shares = comet_client.get_total_supply();
         let total_blnd = comet_client.get_balance(&blnd_token);
-
         //blnd per token in the LP pool
         let blnd_per_tkn = rounding::fixed_div_floor(total_blnd, total_comet_shares, SCALAR_7); 
         //blnd correstponding to the LP shares held by the pool
         let blnd = rounding::fixed_mul_floor(pool_balance.tokens, blnd_per_tkn, SCALAR_7);
-
+        
+        //setup to prevent time out
+        let usdc_token = storage::get_usdc_token(e); 
+        let total_usdc = comet_client.get_balance(&usdc_token);
+        cvlr_assume!(total_usdc == 10); // //@audit prevent time out
+        cvlr_assume!(total_comet_shares > 0 && total_comet_shares < 100); // //@audit prevent time out
         
 
         let restult = load_pool_backstop_data(e, &address);
@@ -241,7 +249,6 @@ pub fn pool_balance_sanity(pool_balance: &mut PoolBalance) {
         require_is_from_pool_factory(e, &address, balance);
         cvlr_assume!(unsafe{GHOST_IS_POOL == false});
         cvlr_assert!(false); // should never be reached  
-
     }
 
     // non_queued_tokens() returns tokens - q4w

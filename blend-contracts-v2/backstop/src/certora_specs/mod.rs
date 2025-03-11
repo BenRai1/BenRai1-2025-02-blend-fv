@@ -32,6 +32,9 @@ pub(crate) static mut GHOST_POOL_TOTAL_SUPPLY: i128 = 0;
 pub(crate) static mut GHOST_POOL_BLND_BALANCE: i128 = 0;
 pub(crate) static mut GHOST_POOL_USDC_BALANCE: i128 = 0;
 
+//ghost for withdraw shares to token 
+pub(crate) static mut GHOST_TO_RETURN: i128 = 0;
+
 
 
 //--------------- added for ghost END-------------------

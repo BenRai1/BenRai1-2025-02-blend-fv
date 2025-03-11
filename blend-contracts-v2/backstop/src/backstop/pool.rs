@@ -99,7 +99,7 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
 
 
         PoolBackstopData {
-            tokens: pool_balance.tokens +1,
+            tokens: pool_balance.tokens,
             q4w_pct,
             blnd,
             usdc,
@@ -164,7 +164,7 @@ pub fn require_pool_above_threshold(pool_backstop_data: &PoolBackstopData) -> bo
         .saturating_mul(bal_blnd)
         .saturating_mul(bal_blnd)
         .saturating_mul(bal_usdc);
-    saturating_pool_pc < threshold_pc
+    saturating_pool_pc >= threshold_pc
 }
 
 /// The pool's backstop balances

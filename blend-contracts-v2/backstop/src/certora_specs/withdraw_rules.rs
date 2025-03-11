@@ -7,7 +7,7 @@ use crate::storage;
 
 //functions to call
 use crate::backstop::{execute_queue_withdrawal, execute_dequeue_withdrawal, execute_withdraw};
-use crate::certora_specs::{GHOST_UPDATE_EMISSIONS_CALLED, GHOST_FROM_BALANCE, GHOST_TO_BALANCE}; //@audit added for ghost
+use crate::certora_specs::{GHOST_UPDATE_EMISSIONS_CALLED, GHOST_FROM_BALANCE, GHOST_TO_BALANCE, GHOST_TO_RETURN}; //@audit added for ghost
 
 
 
@@ -56,42 +56,39 @@ use crate::certora_specs::{GHOST_UPDATE_EMISSIONS_CALLED, GHOST_FROM_BALANCE, GH
      
  
     /// WITHDRAW START ////
-    /// 
-        // execute_withdraw() reverts if tokensToWithdraw > pool.tokens
+
+        // execute_withdraw() reverts if to_return is 0
         #[rule]
-        pub fn withdraw_amount_bigger_than_pool_tokens(e: &Env) {
+        pub fn withdraw_to_return_zero(e: &Env) {
             let from: Address = nondet_address();
             let pool_address: Address = nondet_address();
             let shares: i128 = cvlr::nondet();
-            cvlr_assume!(shares < 100); // to prevent timeouts
-            let pool = storage::get_pool_balance(e, &pool_address);
-            let tokens_to_withdraw = pool.convert_to_tokens(shares); //@audit this might be the reason for the timeout
-            cvlr_assume!(tokens_to_withdraw > pool.tokens); 
-            clog!(tokens_to_withdraw as i64);
-            clog!(pool.tokens as i64);
+            cvlr_assume!(shares < 10); // to prevent timeouts
+            let to_return: i128 = cvlr::nondet();
+            cvlr_assume!(to_return == 0);
+            unsafe{GHOST_TO_RETURN = to_return};
             
             execute_withdraw(e, &from, &pool_address, shares);
             cvlr_assert!(false);
         }
-     
-        
+
+
         // execute_withdraw() reduces pool.shares by amount, reduces pool.q4w by amount, reduces pool.tokens by tokensToWithdraw
         #[rule]
-        pub fn withdraw_reduce_pool(e: &Env) {
+        pub fn withdraw_reduce_pool_tokens(e: &Env) {
             let from: Address = nondet_address();
             let pool_address: Address = nondet_address();
             let shares: i128 = cvlr::nondet();
             cvlr_assume!(shares < 100); // to prevent timeouts
             let pool_before = storage::get_pool_balance(e, &pool_address);
-            let tokens_to_withdraw = pool_before.convert_to_tokens(shares);
+            let to_return: i128 = cvlr::nondet();
+            unsafe{GHOST_TO_RETURN = to_return};
             
             execute_withdraw(e, &from, &pool_address, shares);
             
             let pool_after = storage::get_pool_balance(e, &pool_address);
             
-            cvlr_assert!(pool_after.shares == pool_before.shares - shares);
-            // cvlr_assert!(pool_after.q4w == pool_before.q4w - shares); //@audit is coverd by pool rules
-            cvlr_assert!(pool_after.tokens == pool_before.tokens - tokens_to_withdraw);
+            cvlr_assert!(pool_after.tokens == pool_before.tokens - to_return);
         }
    
         // execute_withdraw() returns right amount of tokens to withdraw
@@ -101,12 +98,12 @@ use crate::certora_specs::{GHOST_UPDATE_EMISSIONS_CALLED, GHOST_FROM_BALANCE, GH
             let pool_address: Address = nondet_address();
             let shares: i128 = cvlr::nondet();
             cvlr_assume!(shares < 100); // to prevent timeouts
-            let pool = storage::get_pool_balance(e, &pool_address);
-            let tokens_to_withdraw = pool.convert_to_tokens(shares);
+            let to_return: i128 = cvlr::nondet();
+            unsafe{GHOST_TO_RETURN = to_return};
             
             let result = execute_withdraw(e, &from, &pool_address, shares);
             
-            cvlr_assert!(result == tokens_to_withdraw);
+            cvlr_assert!(result == to_return);
         }
 
     

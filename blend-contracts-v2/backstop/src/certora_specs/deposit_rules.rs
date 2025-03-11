@@ -29,6 +29,7 @@ pub fn three_amounts_less_than_2_32(_e: &Env, a: i128, b: i128, c: i128) {
 
 //------------------------------- RULES TEST START ----------------------------------
 
+
 //------------------------------- RULES TEST END ----------------------------------
 
 //------------------------------- RULES PROBLEMS START ----------------------------------
@@ -37,6 +38,26 @@ pub fn three_amounts_less_than_2_32(_e: &Env, a: i128, b: i128, c: i128) {
 
 //------------------------------- RULES OK START ------------------------------------
 
+
+    // execute_deposit(): reverts if amount to mint is 0
+    #[rule]
+    pub fn deposit_amount_to_mint_zero(e: &Env) {
+        let from: Address = nondet_address();
+        let pool_address: Address = nondet_address();
+        let amount: i128 = cvlr::nondet();
+
+        let pool_balance = storage::get_pool_balance(e, &pool_address);
+
+        //set up
+        let to_mint = pool_balance.convert_to_shares(amount);
+        cvlr_assume!(to_mint <= 0); // ensure the function reverts
+
+        //function call
+        execute_deposit(&e, &from, &pool_address, amount);
+
+        //assert this is never reached
+        cvlr_assert!(false);
+    }
 
     //execute_deposit(): reverts if pool_address is not from poolFactory
     #[rule]
