@@ -61,16 +61,14 @@ pub fn pool_balance_sanity(pool_balance: &mut PoolBalance) {
 
         //target
         let blnd_per_token: i128 = cvlr::nondet();
-        // unsafe{GHOST_POOL_BLND_BALANCE = blnd_per_token;} //@audit-issue works
         unsafe{GHOST_BLND_PER_TOKEN = blnd_per_token;}
         cvlr_assume!(blnd_per_token > 0 && blnd_per_token < 100); //prevent time out
         
         //blnd correstponding to the LP shares held by the pool
         let target = rounding::fixed_mul_floor(pool_balance.tokens, blnd_per_token, SCALAR_7);
+        clog!(blnd_per_token as i64);
         clog!(target as i64);
 
-        // let target = cvlr::nondet(); //@audit-issue works but does not prove that much
-        // unsafe{GHOST_BLND = target;} //@audit-issue works but does not prove that much
         
         //setup to prevent time out
         ////@audit set USDC per tokne to be 0 to reduce resources needed

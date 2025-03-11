@@ -1,16 +1,17 @@
 #![allow(unused)]
 use soroban_sdk::{Env, Address};
 
+use crate::constants::SCALAR_7;
 use crate::{storage::BackstopEmissionData, PoolBalance, UserBalance};
-use crate::certora_specs::GHOST_POOL_USDC_BALANCE;
+use crate::certora_specs::{GHOST_BLND_PER_TOKEN, GHOST_POOL_USDC_BALANCE, GHOST_USDC_PER_TOKEN};
 use crate::certora_specs::GHOST_POOL_BLND_BALANCE;
 
 
 pub fn fixed_div_ceil(x: i128, y: i128, denominator: i128) -> i128 {
-    if(unsafe{x == GHOST_POOL_USDC_BALANCE}){
-        unsafe{GHOST_POOL_USDC_BALANCE += 1};
-    } else if(unsafe{x == GHOST_POOL_BLND_BALANCE}){
-        unsafe{GHOST_POOL_BLND_BALANCE += 1};
+    if(unsafe{x == GHOST_POOL_BLND_BALANCE}){
+        unsafe{GHOST_BLND_PER_TOKEN += denominator};
+    } else if(unsafe{x == GHOST_POOL_USDC_BALANCE}){
+        unsafe{GHOST_USDC_PER_TOKEN += denominator};
     }
     let r = x * y;
     let initial_result = r/ denominator;

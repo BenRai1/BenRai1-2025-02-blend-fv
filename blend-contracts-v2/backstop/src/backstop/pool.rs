@@ -67,7 +67,7 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
         #[cfg(feature = "certora")]
         let total_blnd = unsafe{GHOST_POOL_BLND_BALANCE}; //@audit preventing timeout and out of memory issues
         #[cfg(feature = "certora")]
-            let total_usdc = unsafe{GHOST_POOL_USDC_BALANCE}; //@audit preventing timeout and out of memory issues
+        let total_usdc = unsafe{GHOST_POOL_USDC_BALANCE}; //@audit preventing timeout and out of memory issues
 
         // underlying per LP token
         #[cfg(not(feature = "certora"))]
@@ -75,16 +75,20 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
         #[cfg(feature = "certora")]
         let blnd_per_tkn = unsafe{GHOST_BLND_PER_TOKEN}; //@audit preventing timeout and out of memory issues
 
-        
+        clog!(blnd_per_tkn as i64);
+
         #[cfg(not(feature = "certora"))]
         let usdc_per_tkn = total_usdc.fixed_div_floor(total_comet_shares, SCALAR_7).unwrap_optimized();
         #[cfg(feature = "certora")]
         let usdc_per_tkn = unsafe{GHOST_USDC_PER_TOKEN}; //@audit preventing timeout and out of memory issues
 
+        //final values
         #[cfg(not(feature = "certora"))]
         let blnd = pool_balance.tokens.fixed_mul_floor(blnd_per_tkn, SCALAR_7).unwrap_optimized();
         #[cfg(feature = "certora")]
         let blnd = rounding::fixed_mul_floor(pool_balance.tokens, blnd_per_tkn, SCALAR_7);
+
+        clog!(blnd as i64);
 
         #[cfg(not(feature = "certora"))]
         let usdc = pool_balance.tokens.fixed_mul_floor(usdc_per_tkn, SCALAR_7).unwrap_optimized();
@@ -92,20 +96,16 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
         let usdc = rounding::fixed_mul_floor(pool_balance.tokens, usdc_per_tkn, SCALAR_7);
 
 
-
         PoolBackstopData {
             tokens: pool_balance.tokens,
             q4w_pct,
-            // q4w_pct: q4w_pct + 1,
-            blnd,
-            // blnd: blnd +1,
+            // blnd,
+            blnd: blnd +1,
             usdc,
-            // usdc: usdc + 1,
         }
     } else {
         PoolBackstopData {
             tokens: 0,
-            // q4w_pct: q4w_pct + 1,
             q4w_pct,
             blnd: 0,
             usdc: 0,
@@ -123,7 +123,7 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
 ///
 /// ### Panics
 /// If the pool address cannot be verified
-pub fn require_is_from_pool_factory(e: &Env, address: &Address, balance: i128) { //@audit-issue GHOST implementation breaks other rules
+pub fn require_is_from_pool_factory(e: &Env, address: &Address, balance: i128) { 
     if balance == 0 {
         #[cfg(not(feature = "certora"))]
         let pool_factory_client = PoolFactoryClient::new(e, &storage::get_pool_factory(e));
@@ -135,14 +135,6 @@ pub fn require_is_from_pool_factory(e: &Env, address: &Address, balance: i128) {
     }
 }
 
-// pub fn require_is_from_pool_factory(e: &Env, address: &Address, balance: i128) { //@audit-issue original which does not break stuff
-//     if balance == 0 {
-//         let pool_factory_client = PoolFactoryClient::new(e, &storage::get_pool_factory(e));
-//         if !pool_factory_client.is_pool(address) {
-//             panic_with_error!(e, BackstopError::NotPool);
-//         }
-//     }
-// }
 
 /// Calculate the threshold for the pool's backstop balance
 ///
@@ -157,7 +149,7 @@ pub fn require_pool_above_threshold(pool_backstop_data: &PoolBackstopData) -> bo
 
     // floor balances to nearest full unit and calculate saturated pool product constant
     let bal_blnd = pool_backstop_data.blnd / SCALAR_7; //i: get full unit
-    let bal_usdc = pool_backstop_data.usdc / SCALAR_7; //@audit-issue does usdc have 7 decimals
+    let bal_usdc = pool_backstop_data.usdc / SCALAR_7; 
     let saturating_pool_pc = bal_blnd //saturation pool percentage
         .saturating_mul(bal_blnd) //i: Performs multiplication that saturates at the numeric bounds instead of overflowing
         .saturating_mul(bal_blnd)
