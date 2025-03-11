@@ -31,18 +31,15 @@ impl cvlr::nondet::Nondet for PoolBackstopData {
     }
 }
 
-// // #[cfg(feature = "certora")] //@audit added
-// pub static mut GHOST_IS_POOL: GhostMap<Address, bool> = GhostMap::UnInit;
-
 
 pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
     let pool_balance = storage::get_pool_balance(e, address);
     let q4w_pct = if pool_balance.shares > 0 {
 
-        #[cfg(not(feature = "certora"))] //@audit skip the next line
+        #[cfg(not(feature = "certora"))] 
         pool_balance.q4w.fixed_div_ceil(pool_balance.shares, SCALAR_7).unwrap_optimized();
 
-        #[cfg(feature = "certora")] //@audit call this instead
+        #[cfg(feature = "certora")] 
         rounding::fixed_div_ceil(pool_balance.q4w, pool_balance.shares, SCALAR_7)
 
     } else {
@@ -88,13 +85,11 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
         let blnd = pool_balance.tokens.fixed_mul_floor(blnd_per_tkn, SCALAR_7).unwrap_optimized();
         #[cfg(feature = "certora")]
         let blnd = rounding::fixed_mul_floor(pool_balance.tokens, blnd_per_tkn, SCALAR_7);
-        // let blnd = unsafe{GHOST_BLND}; //@audit-issue works but does not prove much
 
         #[cfg(not(feature = "certora"))]
         let usdc = pool_balance.tokens.fixed_mul_floor(usdc_per_tkn, SCALAR_7).unwrap_optimized();
         #[cfg(feature = "certora")]
         let usdc = rounding::fixed_mul_floor(pool_balance.tokens, usdc_per_tkn, SCALAR_7);
-        // let usdc = unsafe{GHOST_USDC}; //@audit-issue works but does not prove much
 
 
 
@@ -104,8 +99,8 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
             // q4w_pct: q4w_pct + 1,
             blnd,
             // blnd: blnd +1,
-            // usdc,
-            usdc: usdc + 1,
+            usdc,
+            // usdc: usdc + 1,
         }
     } else {
         PoolBackstopData {
