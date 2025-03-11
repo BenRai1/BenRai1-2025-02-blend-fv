@@ -8,7 +8,7 @@ use crate::{
 #[cfg(feature = "certora")]
 use crate::certora_specs::{self, mocks::{self, pool_factory::*}};
 use crate::certora_specs::summaries::rounding;
-use crate::certora_specs::{GHOST_POOL_TOTAL_SUPPLY, GHOST_POOL_BLND_BALANCE, GHOST_POOL_USDC_BALANCE, GHOST_Q4W_PCT };
+use crate::certora_specs::{GHOST_POOL_TOTAL_SUPPLY, GHOST_POOL_BLND_BALANCE, GHOST_POOL_USDC_BALANCE, GHOST_Q4W_PCT, GHOST_USDC, GHOST_BLND};
 
 /// The pool's backstop data
 #[derive(Clone)]
@@ -48,7 +48,7 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
     } else {
         0
     };
-
+    clog!(pool_balance.tokens as i64);
     if pool_balance.tokens > 0 {
         #[cfg(not(feature = "certora"))]
         let backstop_token = storage::get_backstop_token(e);
@@ -66,41 +66,46 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
         let total_usdc = comet_client.get_balance(&usdc_token);
         
         #[cfg(feature = "certora")]
-        let total_comet_shares = unsafe{GHOST_POOL_TOTAL_SUPPLY};
+        let total_comet_shares = unsafe{GHOST_POOL_TOTAL_SUPPLY}; //@audit preventing timeout and out of memory issues
         #[cfg(feature = "certora")]
-        let total_blnd = unsafe{GHOST_POOL_BLND_BALANCE};
+        let total_blnd = unsafe{GHOST_POOL_BLND_BALANCE}; //@audit preventing timeout and out of memory issues
         #[cfg(feature = "certora")]
-            let total_usdc = unsafe{GHOST_POOL_USDC_BALANCE};
+            let total_usdc = unsafe{GHOST_POOL_USDC_BALANCE}; //@audit preventing timeout and out of memory issues
 
         // underlying per LP token
         #[cfg(not(feature = "certora"))]
         let blnd_per_tkn = total_blnd.fixed_div_floor(total_comet_shares, SCALAR_7).unwrap_optimized();
         #[cfg(feature = "certora")]
-        let blnd_per_tkn = unsafe{GHOST_BLND_PER_TOKEN};
+        let blnd_per_tkn = unsafe{GHOST_BLND_PER_TOKEN}; //@audit preventing timeout and out of memory issues
+
         
         #[cfg(not(feature = "certora"))]
         let usdc_per_tkn = total_usdc.fixed_div_floor(total_comet_shares, SCALAR_7).unwrap_optimized();
         #[cfg(feature = "certora")]
-        let usdc_per_tkn = unsafe{GHOST_USDC_PER_TOKEN};
+        let usdc_per_tkn = unsafe{GHOST_USDC_PER_TOKEN}; //@audit preventing timeout and out of memory issues
 
         #[cfg(not(feature = "certora"))]
         let blnd = pool_balance.tokens.fixed_mul_floor(blnd_per_tkn, SCALAR_7).unwrap_optimized();
         #[cfg(feature = "certora")]
         let blnd = rounding::fixed_mul_floor(pool_balance.tokens, blnd_per_tkn, SCALAR_7);
+        // let blnd = unsafe{GHOST_BLND}; //@audit-issue works but does not prove much
 
         #[cfg(not(feature = "certora"))]
         let usdc = pool_balance.tokens.fixed_mul_floor(usdc_per_tkn, SCALAR_7).unwrap_optimized();
         #[cfg(feature = "certora")]
         let usdc = rounding::fixed_mul_floor(pool_balance.tokens, usdc_per_tkn, SCALAR_7);
+        // let usdc = unsafe{GHOST_USDC}; //@audit-issue works but does not prove much
 
 
 
         PoolBackstopData {
             tokens: pool_balance.tokens,
-            // q4w_pct: q4w_pct + 1,
             q4w_pct,
+            // q4w_pct: q4w_pct + 1,
             blnd,
-            usdc,
+            // blnd: blnd +1,
+            // usdc,
+            usdc: usdc + 1,
         }
     } else {
         PoolBackstopData {

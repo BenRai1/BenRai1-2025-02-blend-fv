@@ -34,6 +34,8 @@ pub(crate) static mut GHOST_POOL_USDC_BALANCE: i128 = 0;
 pub(crate) static mut GHOST_Q4W_PCT: i128 = 0;
 pub(crate) static mut GHOST_USDC_PER_TOKEN: i128 = 0;
 pub(crate) static mut GHOST_BLND_PER_TOKEN: i128 = 0;
+pub(crate) static mut GHOST_BLND: i128 = 0;
+pub(crate) static mut GHOST_USDC: i128 = 0;
 
 //ghost for withdraw shares to token 
 pub(crate) static mut GHOST_TO_RETURN: i128 = 0;

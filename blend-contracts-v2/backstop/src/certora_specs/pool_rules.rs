@@ -6,8 +6,11 @@ use crate::certora_specs::mocks::conversions::certora_convert_to_tokens;
 use crate::certora_specs::summaries::rounding;
 use crate::backstop::PoolBackstopData;
 use crate::certora_specs::summaries::rounding::fixed_div_ceil;
+use crate::certora_specs::GHOST_BLND;
+use crate::certora_specs::GHOST_BLND_PER_TOKEN;
 use crate::certora_specs::GHOST_IS_POOL; //@audit added for ghost
 
+use crate::certora_specs::GHOST_USDC_PER_TOKEN;
 use crate::certora_specs::{GHOST_POOL_TOTAL_SUPPLY, GHOST_POOL_BLND_BALANCE, GHOST_POOL_USDC_BALANCE }; //@audit added for ghost
 use crate::constants::SCALAR_7;
 use crate::dependencies::CometClient;
@@ -49,69 +52,82 @@ pub fn pool_balance_sanity(pool_balance: &mut PoolBalance) {
     #[rule]
     pub fn load_pool_backstop_returns_blnd(e: &Env) {
         let address: Address = nondet_address();
-
         let pool_balance = storage::get_pool_balance(e, &address);
 
         //setup
         cvlr_assume!(pool_balance.shares == 0); //skip first if statement
-        cvlr_assume!(pool_balance.tokens > 0); //enter second if statement
+        cvlr_assume!(pool_balance.tokens > 0 && pool_balance.tokens < 100); //enter second if statement
         
 
         //target
-        let backstop_token = storage::get_backstop_token(e);
-        let blnd_token = storage::get_backstop_token(e);
-        let comet_client = CometClient::new(e, &backstop_token);
         let blnd_per_token: i128 = cvlr::nondet();
-        unsafe{GHOST_POOL_BLND_BALANCE = blnd_per_token;}
+        // unsafe{GHOST_POOL_BLND_BALANCE = blnd_per_token;} //@audit-issue works
+        unsafe{GHOST_BLND_PER_TOKEN = blnd_per_token;}
         cvlr_assume!(blnd_per_token > 0 && blnd_per_token < 100); //prevent time out
         
         //blnd correstponding to the LP shares held by the pool
-        let blnd = rounding::fixed_mul_floor(pool_balance.tokens, blnd_per_token, SCALAR_7);
+        let target = rounding::fixed_mul_floor(pool_balance.tokens, blnd_per_token, SCALAR_7);
+        clog!(target as i64);
+
+        // let target = cvlr::nondet(); //@audit-issue works but does not prove that much
+        // unsafe{GHOST_BLND = target;} //@audit-issue works but does not prove that much
         
         //setup to prevent time out
         ////@audit set USDC per tokne to be 0 to reduce resources needed
-        let usdc_token = storage::get_usdc_token(e); 
-        let total_usdc = comet_client.get_balance(&usdc_token);
-        cvlr_assume!(total_usdc == 0); // //@audit prevent time out
+        // let usdc_token = storage::get_usdc_token(e); 
+        // let total_usdc = comet_client.get_balance(&usdc_token);
+        // cvlr_assume!(total_usdc == 0); // //@audit prevent time out
         
+        clog!(pool_balance.tokens as i64);
 
         let restult = load_pool_backstop_data(e, &address);
 
-        cvlr_assert!(restult.blnd == blnd);
+        clog!(pool_balance.tokens as i64);
+        clog!(blnd_per_token as i64);
+        clog!(restult.blnd as i64);
+
+        cvlr_assert!(restult.blnd == target);
     }
 
     // load_pool_backstop_data() returns right usdc
     #[rule]
     pub fn load_pool_backstop_returns_usdc(e: &Env) {
         let address: Address = nondet_address();
-
         let pool_balance = storage::get_pool_balance(e, &address);
 
         //setup
-        cvlr_assume!(pool_balance.tokens > 0);
-        cvlr_assume!(pool_balance.shares == 0); //skip "fixed_div_ceiling"
+        cvlr_assume!(pool_balance.shares == 0); //skip first if statement
+        cvlr_assume!(pool_balance.tokens > 0 && pool_balance.tokens < 100); //enter second if statement
+        
 
         //target
-        // let backstop_token = storage::get_backstop_token(e);
-        // let usdc_token = storage::get_usdc_token(e);
-        // let comet_client = CometClient::new(e, &backstop_token);
-        // let total_comet_shares = comet_client.get_total_supply();
+        let usdc_per_token: i128 = cvlr::nondet();
+        // unsafe{GHOST_POOL_BLND_BALANCE = usdc_per_token;} //@audit-issue works
+        unsafe{GHOST_USDC_PER_TOKEN = usdc_per_token;}
+        cvlr_assume!(usdc_per_token > 0 && usdc_per_token < 100); //prevent time out
+        
+        //blnd correstponding to the LP shares held by the pool
+        let target = rounding::fixed_mul_floor(pool_balance.tokens, usdc_per_token, SCALAR_7);
+        clog!(target as i64);
+
+        // let target = cvlr::nondet(); //@audit-issue works but does not prove that much
+        // unsafe{GHOST_BLND = target;} //@audit-issue works but does not prove that much
+        
+        //setup to prevent time out
+        ////@audit set USDC per tokne to be 0 to reduce resources needed
+        // let usdc_token = storage::get_usdc_token(e); 
         // let total_usdc = comet_client.get_balance(&usdc_token);
-
-        ////@audit  using ghosts to fix memory problem
-        let total_comet_shares: i128 = cvlr::nondet();
-        unsafe{GHOST_POOL_TOTAL_SUPPLY = total_comet_shares;}
-        let total_usdc: i128 = cvlr::nondet();
-        unsafe{GHOST_POOL_USDC_BALANCE = total_usdc;}
-
-        //usdc per token in the LP pool
-        let usdc_per_tkn = rounding::fixed_div_floor(total_usdc, total_comet_shares, SCALAR_7); 
-        //usdc correstponding to the LP shares held by the pool
-        let usdc = rounding::fixed_mul_floor(pool_balance.tokens, usdc_per_tkn, SCALAR_7);
+        // cvlr_assume!(total_usdc == 0); // //@audit prevent time out
+        
+        clog!(pool_balance.tokens as i64);
 
         let restult = load_pool_backstop_data(e, &address);
 
-        cvlr_assert!(restult.usdc == usdc);
+        clog!(pool_balance.tokens as i64);
+        clog!(usdc_per_token as i64);
+        clog!(restult.usdc as i64);
+
+        cvlr_assert!(restult.usdc == target);
     }
     
 
