@@ -3,15 +3,12 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{contracttype, panic_with_error, unwrap::UnwrapOptimized, Address, Env};
 
 use crate::{
-    constants::SCALAR_7, 
-    dependencies::{CometClient, PoolFactoryClient}, 
-    errors::BackstopError, 
-    storage
+    certora_specs::{GHOST_BLND_PER_TOKEN, GHOST_USDC_PER_TOKEN}, constants::SCALAR_7, dependencies::{CometClient, PoolFactoryClient}, errors::BackstopError, storage
 };
 #[cfg(feature = "certora")]
 use crate::certora_specs::{self, mocks::{self, pool_factory::*}};
 use crate::certora_specs::summaries::rounding;
-use crate::certora_specs::{GHOST_POOL_TOTAL_SUPPLY, GHOST_POOL_BLND_BALANCE, GHOST_POOL_USDC_BALANCE};
+use crate::certora_specs::{GHOST_POOL_TOTAL_SUPPLY, GHOST_POOL_BLND_BALANCE, GHOST_POOL_USDC_BALANCE, GHOST_Q4W_PCT };
 
 /// The pool's backstop data
 #[derive(Clone)]
@@ -79,12 +76,12 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
         #[cfg(not(feature = "certora"))]
         let blnd_per_tkn = total_blnd.fixed_div_floor(total_comet_shares, SCALAR_7).unwrap_optimized();
         #[cfg(feature = "certora")]
-        let blnd_per_tkn = rounding::fixed_div_floor(total_blnd, total_comet_shares, SCALAR_7);
+        let blnd_per_tkn = unsafe{GHOST_BLND_PER_TOKEN};
         
         #[cfg(not(feature = "certora"))]
         let usdc_per_tkn = total_usdc.fixed_div_floor(total_comet_shares, SCALAR_7).unwrap_optimized();
         #[cfg(feature = "certora")]
-        let usdc_per_tkn = rounding::fixed_div_floor(total_usdc, total_comet_shares, SCALAR_7);
+        let usdc_per_tkn = unsafe{GHOST_USDC_PER_TOKEN};
 
         #[cfg(not(feature = "certora"))]
         let blnd = pool_balance.tokens.fixed_mul_floor(blnd_per_tkn, SCALAR_7).unwrap_optimized();
@@ -100,6 +97,7 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
 
         PoolBackstopData {
             tokens: pool_balance.tokens,
+            // q4w_pct: q4w_pct + 1,
             q4w_pct,
             blnd,
             usdc,
@@ -107,6 +105,7 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
     } else {
         PoolBackstopData {
             tokens: 0,
+            // q4w_pct: q4w_pct + 1,
             q4w_pct,
             blnd: 0,
             usdc: 0,

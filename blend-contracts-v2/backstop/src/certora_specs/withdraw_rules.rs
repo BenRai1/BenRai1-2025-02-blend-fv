@@ -18,32 +18,6 @@ use crate::certora_specs::{GHOST_UPDATE_EMISSIONS_CALLED, GHOST_FROM_BALANCE, GH
   
         
 
-        // execute_queue_withdrawal() increases user sum of q4w by amount 
-        #[rule]
-        pub fn queue_increase_user_sum_q4w(e: &Env) { //@audit-issue mutation fails but covered by other rule
-
-            let from: Address = nondet_address();
-            let pool_address: Address = nondet_address();
-            let shares: i128 = cvlr::nondet();
-            //values before
-            let user_q4w_before = storage::get_user_balance(e, &pool_address, &from).q4w;
-            let user_q4w_lenght_before = user_q4w_before.len();
-            cvlr_assume!(user_q4w_lenght_before == 2);
-            clog!(user_q4w_lenght_before);
-            let user_q4w_sum_before = user_q4w_before.get(0).unwrap().amount + user_q4w_before.get(1).unwrap().amount;
-
-            execute_queue_withdrawal(e, &from, &pool_address, shares);
-
-            //values after
-            let user_sum_q4w_after = storage::get_user_balance(e, &pool_address, &from).q4w;
-            let user_q4w_length_after = user_sum_q4w_after.len();
-            clog!(user_q4w_length_after);
-
-            let user_q4w_sum_after = user_sum_q4w_after.get(0).unwrap().amount + user_sum_q4w_after.get(1).unwrap().amount + user_sum_q4w_after.get(2).unwrap().amount;
-            
-            cvlr_assert!(user_q4w_sum_after == user_q4w_sum_before + shares);
-        }
-        
 
     //// QUEUE WITHDRAWALS END ////
     
@@ -57,54 +31,6 @@ use crate::certora_specs::{GHOST_UPDATE_EMISSIONS_CALLED, GHOST_FROM_BALANCE, GH
  
     /// WITHDRAW START ////
 
-        // execute_withdraw() reverts if to_return is 0
-        #[rule]
-        pub fn withdraw_to_return_zero(e: &Env) {
-            let from: Address = nondet_address();
-            let pool_address: Address = nondet_address();
-            let shares: i128 = cvlr::nondet();
-            cvlr_assume!(shares < 10); // to prevent timeouts
-            let to_return: i128 = cvlr::nondet();
-            cvlr_assume!(to_return == 0);
-            unsafe{GHOST_TO_RETURN = to_return};
-            
-            execute_withdraw(e, &from, &pool_address, shares);
-            cvlr_assert!(false);
-        }
-
-
-        // execute_withdraw() reduces pool.shares by amount, reduces pool.q4w by amount, reduces pool.tokens by tokensToWithdraw
-        #[rule]
-        pub fn withdraw_reduce_pool_tokens(e: &Env) {
-            let from: Address = nondet_address();
-            let pool_address: Address = nondet_address();
-            let shares: i128 = cvlr::nondet();
-            cvlr_assume!(shares < 100); // to prevent timeouts
-            let pool_before = storage::get_pool_balance(e, &pool_address);
-            let to_return: i128 = cvlr::nondet();
-            unsafe{GHOST_TO_RETURN = to_return};
-            
-            execute_withdraw(e, &from, &pool_address, shares);
-            
-            let pool_after = storage::get_pool_balance(e, &pool_address);
-            
-            cvlr_assert!(pool_after.tokens == pool_before.tokens - to_return);
-        }
-   
-        // execute_withdraw() returns right amount of tokens to withdraw
-        #[rule]
-        pub fn withdraw_returns_tokens(e: &Env) {
-            let from: Address = nondet_address();
-            let pool_address: Address = nondet_address();
-            let shares: i128 = cvlr::nondet();
-            cvlr_assume!(shares < 100); // to prevent timeouts
-            let to_return: i128 = cvlr::nondet();
-            unsafe{GHOST_TO_RETURN = to_return};
-            
-            let result = execute_withdraw(e, &from, &pool_address, shares);
-            
-            cvlr_assert!(result == to_return);
-        }
 
     
     /// WITHDRAW END ////
@@ -116,8 +42,82 @@ use crate::certora_specs::{GHOST_UPDATE_EMISSIONS_CALLED, GHOST_FROM_BALANCE, GH
 //------------------------------- RULES PROBLEMS START ----------------------------------
 
 //------------------------------- RULES OK START ------------------------------------
+
+    
+    // execute_queue_withdrawal() increases user sum of q4w by amount 
+    #[rule]
+    pub fn queue_increase_user_sum_q4w(e: &Env) { 
+
+        let from: Address = nondet_address();
+        let pool_address: Address = nondet_address();
+        let shares: i128 = cvlr::nondet();
+        //values before
+        let user_q4w_before = storage::get_user_balance(e, &pool_address, &from).q4w;
+        let user_q4w_lenght_before = user_q4w_before.len();
+        cvlr_assume!(user_q4w_lenght_before == 2);
+        clog!(user_q4w_lenght_before);
+        let user_q4w_sum_before = user_q4w_before.get(0).unwrap().amount + user_q4w_before.get(1).unwrap().amount;
+
+        execute_queue_withdrawal(e, &from, &pool_address, shares);
+
+        //values after
+        let user_sum_q4w_after = storage::get_user_balance(e, &pool_address, &from).q4w;
+        let user_q4w_length_after = user_sum_q4w_after.len();
+        clog!(user_q4w_length_after);
+
+        let user_q4w_sum_after = user_sum_q4w_after.get(0).unwrap().amount + user_sum_q4w_after.get(1).unwrap().amount + user_sum_q4w_after.get(2).unwrap().amount;
+        
+        cvlr_assert!(user_q4w_sum_after == user_q4w_sum_before + shares);
+    }
+    
+    // execute_withdraw() reverts if to_return is 0
+    #[rule]
+    pub fn withdraw_to_return_zero(e: &Env) {
+        let from: Address = nondet_address();
+        let pool_address: Address = nondet_address();
+        let shares: i128 = cvlr::nondet();
+        cvlr_assume!(shares < 10); // to prevent timeouts
+        let to_return: i128 = cvlr::nondet();
+        cvlr_assume!(to_return == 0);
+        unsafe{GHOST_TO_RETURN = to_return};
+        
+        execute_withdraw(e, &from, &pool_address, shares);
+        cvlr_assert!(false);
+    }
+
+    // execute_withdraw() reduces pool.shares by amount, reduces pool.q4w by amount, reduces pool.tokens by tokensToWithdraw
+    #[rule]
+    pub fn withdraw_reduce_pool_tokens(e: &Env) {
+        let from: Address = nondet_address();
+        let pool_address: Address = nondet_address();
+        let shares: i128 = cvlr::nondet();
+        cvlr_assume!(shares < 100); // to prevent timeouts
+        let pool_before = storage::get_pool_balance(e, &pool_address);
+        let to_return: i128 = cvlr::nondet();
+        unsafe{GHOST_TO_RETURN = to_return};
+        
+        execute_withdraw(e, &from, &pool_address, shares);
+        
+        let pool_after = storage::get_pool_balance(e, &pool_address);
+        
+        cvlr_assert!(pool_after.tokens == pool_before.tokens - to_return);
+    }
+
+    // execute_withdraw() returns right amount of tokens to withdraw
+    #[rule]
+    pub fn withdraw_returns_tokens(e: &Env) {
+            let from: Address = nondet_address();
+            let pool_address: Address = nondet_address();
+            let shares: i128 = cvlr::nondet();
+            cvlr_assume!(shares < 100); // to prevent timeouts
+            let to_return: i128 = cvlr::nondet();
+            unsafe{GHOST_TO_RETURN = to_return};
+            
+            let result = execute_withdraw(e, &from, &pool_address, shares);
+            
+            cvlr_assert!(result == to_return);
+        }
      
-   
     // execute_withdraw() reverts if shares > pool.shares || shares > pool.q4w
     #[rule]
     pub fn withdraw_amount_bigger_than_pool_shares(e: &Env) {

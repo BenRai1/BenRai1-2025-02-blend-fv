@@ -101,9 +101,9 @@ pub fn execute_withdraw(e: &Env, from: &Address, pool_address: &Address, amount:
  
     // clog!(to_return as i64); //@audit added to log
     if to_return == 0 {
-        // panic_with_error!(e, &BackstopError::InvalidTokenWithdrawAmount); 
+        panic_with_error!(e, &BackstopError::InvalidTokenWithdrawAmount); 
     }
-    pool_balance.withdraw(e, to_return+1, amount);
+    pool_balance.withdraw(e, to_return, amount);
 
     storage::set_user_balance(e, pool_address, from, &user_balance);
     storage::set_pool_balance(e, pool_address, &pool_balance); 
