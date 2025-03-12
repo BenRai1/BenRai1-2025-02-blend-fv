@@ -27,253 +27,211 @@ pub fn three_amounts_less_than_2_32(_e: &Env, a: i128, b: i128, c: i128) {
     cvlr_assume!(a + b + c < 2^32);
 }
 
-//------------------------------- RULES TEST START ----------------------------------
 
+// execute_deposit(): reverts if amount to mint is 0
+#[rule]
+pub fn deposit_amount_to_mint_zero(e: &Env) {
+    let from: Address = nondet_address();
+    let pool_address: Address = nondet_address();
+    let amount: i128 = cvlr::nondet();
 
-//------------------------------- RULES TEST END ----------------------------------
+    let pool_balance = storage::get_pool_balance(e, &pool_address);
 
-//------------------------------- RULES PROBLEMS START ----------------------------------
+    //set up
+    let to_mint = pool_balance.convert_to_shares(amount);
+    cvlr_assume!(to_mint <= 0); // ensure the function reverts
 
-//------------------------------- RULES PROBLEMS START ----------------------------------
+    //function call
+    execute_deposit(&e, &from, &pool_address, amount);
 
-//------------------------------- RULES OK START ------------------------------------
+    //assert this is never reached
+    cvlr_assert!(false);
+}
 
+//execute_deposit(): reverts if pool_address is not from poolFactory
+#[rule]
+pub fn deposit_pool_address_not_from_pool_factory(e: &Env) {
+    let from: Address = nondet_address();
+    let pool_address: Address = nondet_address();
+    let amount: i128 = cvlr::nondet();
 
-    // execute_deposit(): reverts if amount to mint is 0
-    #[rule]
-    pub fn deposit_amount_to_mint_zero(e: &Env) {
-        let from: Address = nondet_address();
-        let pool_address: Address = nondet_address();
-        let amount: i128 = cvlr::nondet();
+    //setup
+    let pool_balance = storage::get_pool_balance(e, &pool_address);
+    cvlr_assume!(pool_balance.shares == 0); // needed to enter the if statement
 
-        let pool_balance = storage::get_pool_balance(e, &pool_address);
+    //function call
+    execute_deposit(e, &from, &pool_address, amount);
+    cvlr_assume!(unsafe{GHOST_IS_POOL == false});
+    cvlr_assert!(false); //should never be reached
+}
 
-        //set up
-        let to_mint = pool_balance.convert_to_shares(amount);
-        cvlr_assume!(to_mint <= 0); // ensure the function reverts
+// execute_deposit(): increases total shares of pool
+#[rule]
+pub fn deposit_shares_increases_pool_shares(e: &Env) {
+    let from: Address = nondet_address();
+    let pool_address: Address = nondet_address();
+    let amount: i128 = cvlr::nondet();
+    cvlr_assume!(amount < 100); // to prevent timeout
 
-        //function call
-        execute_deposit(&e, &from, &pool_address, amount);
-
-        //assert this is never reached
-        cvlr_assert!(false);
-    }
-
-    //execute_deposit(): reverts if pool_address is not from poolFactory
-    #[rule]
-    pub fn deposit_pool_address_not_from_pool_factory(e: &Env) {
-        let from: Address = nondet_address();
-        let pool_address: Address = nondet_address();
-        let amount: i128 = cvlr::nondet();
-
-        //setup
-        let pool_balance = storage::get_pool_balance(e, &pool_address);
-        cvlr_assume!(pool_balance.shares == 0); // needed to enter the if statement
-
-        //function call
-        execute_deposit(e, &from, &pool_address, amount);
-        cvlr_assume!(unsafe{GHOST_IS_POOL == false});
-        cvlr_assert!(false); //should never be reached
-    }
-
-    // execute_deposit(): increases total shares of pool
-    #[rule]
-    pub fn deposit_shares_increases_pool_shares(e: &Env) {
-        let from: Address = nondet_address();
-        let pool_address: Address = nondet_address();
-        let amount: i128 = cvlr::nondet();
-        cvlr_assume!(amount < 100); // to prevent timeout
-
-        //values before
-        let pool_shares_before = storage::get_pool_balance(e, &pool_address).shares;
-        
-        //LOG
-        clog!(amount as i64);
-        clog!(pool_shares_before as i64);
-
-        //function call
-        let shares_to_mint = execute_deposit(&e, &from, &pool_address, amount);
-
-        //values after
-        let pool_shares_after = storage::get_pool_balance(e, &pool_address).shares;
-        clog!(pool_shares_after as i64);
-
-        //assert
-        cvlr_assert!(pool_shares_after == pool_shares_before + shares_to_mint);
-    }
+    //values before
+    let pool_shares_before = storage::get_pool_balance(e, &pool_address).shares;
     
- // execute_deposit(): increases shares of user
-    #[rule]
-    pub fn deposit_shares_increases_user_shares(e: &Env) {
-        let from: Address = nondet_address();
-        let pool_address: Address = nondet_address();
-        let amount: i128 = cvlr::nondet();
-        cvlr_assume!(amount < 100); // to prevent timeout
+    //LOG
+    clog!(amount as i64);
+    clog!(pool_shares_before as i64);
 
-        //values before
-        let from_shares_before = storage::get_user_balance(e, &pool_address, &from).shares; 
+    //function call
+    let shares_to_mint = execute_deposit(&e, &from, &pool_address, amount);
 
-        //function call
-        let shares_to_mint = execute_deposit(&e, &from, &pool_address, amount);
+    //values after
+    let pool_shares_after = storage::get_pool_balance(e, &pool_address).shares;
+    clog!(pool_shares_after as i64);
 
-        //values after
-        let from_shares_after = storage::get_user_balance(e, &pool_address, &from).shares; //@audit only pool check
-        clog!(from_shares_after as i64);
+    //assert
+    cvlr_assert!(pool_shares_after == pool_shares_before + shares_to_mint);
+}
 
-        //assert
-        cvlr_assert!(from_shares_after == from_shares_before + shares_to_mint);
-    }
+// execute_deposit(): increases shares of user
+#[rule]
+pub fn deposit_shares_increases_user_shares(e: &Env) {
+    let from: Address = nondet_address();
+    let pool_address: Address = nondet_address();
+    let amount: i128 = cvlr::nondet();
+    cvlr_assume!(amount < 100); // to prevent timeout
+
+    //values before
+    let from_shares_before = storage::get_user_balance(e, &pool_address, &from).shares; 
+
+    //function call
+    let shares_to_mint = execute_deposit(&e, &from, &pool_address, amount);
+
+    //values after
+    let from_shares_after = storage::get_user_balance(e, &pool_address, &from).shares; //@audit only pool check
+    clog!(from_shares_after as i64);
+
+    //assert
+    cvlr_assert!(from_shares_after == from_shares_before + shares_to_mint);
+}
+
+// execute_deposit(): increases tokens of pool
+#[rule]
+pub fn deposit_pool_tokens_change(e: &Env) {
+    let from : Address = nondet_address();
+    let pool_address : Address = nondet_address();
+    let amount : i128 = cvlr::nondet();
+    cvlr_assume!(amount > 0 && amount < 100); // to prevent timeout
+
+    //values before
+    let pool_tokens_before = storage::get_pool_balance(e, &pool_address).tokens;
+
+    //function call
+    execute_deposit(&e, &from, &pool_address, amount);
+
+    //values after
+    let pool_tokens_after = storage::get_pool_balance(e, &pool_address).tokens;
+
+    //assert
+    cvlr_assert!(pool_tokens_after == pool_tokens_before + amount);
+}
+
+// execute_deposit(): returns right amount of shares to mint
+#[rule]
+pub fn deposit_shares_to_mint(e: &Env, from: &Address, pool_address: &Address, amount: i128) {
+    //setup
+    let pool_balance = storage::get_pool_balance(e, pool_address);
+    let target_shares_to_mint = pool_balance.convert_to_shares(amount);
+
+    //function call
+    let shares_to_mint = execute_deposit(&e, &from, &pool_address, amount);
+
+    //assert
+    cvlr_assert!(
+        shares_to_mint == target_shares_to_mint
+    );
+}
+
+//execute_deposit(): increaes the amount of tokens in the pool
+#[rule]
+pub fn deposit_balances_change(e: &Env) {
+    let from: Address = nondet_address();
+    let pool_address: Address = nondet_address();
+    let amount: i128 = cvlr::nondet(); 
+    cvlr_assume!(amount == 1);
     
-    // execute_deposit(): increases tokens of pool
-    #[rule]
-    pub fn deposit_pool_tokens_change(e: &Env) {
-        let from : Address = nondet_address();
-        let pool_address : Address = nondet_address();
-        let amount : i128 = cvlr::nondet();
-        cvlr_assume!(amount > 0 && amount < 100); // to prevent timeout
-
-        //values before
-        let pool_tokens_before = storage::get_pool_balance(e, &pool_address).tokens;
-
-        //function call
-        execute_deposit(&e, &from, &pool_address, amount);
-
-        //values after
-        let pool_tokens_after = storage::get_pool_balance(e, &pool_address).tokens;
-
-        //assert
-        cvlr_assert!(pool_tokens_after == pool_tokens_before + amount);
-    }
-
-    // execute_deposit(): returns right amount of shares to mint
-    #[rule]
-    pub fn deposit_shares_to_mint(e: &Env, from: &Address, pool_address: &Address, amount: i128) {
-        //setup
-        let pool_balance = storage::get_pool_balance(e, pool_address);
-        let target_shares_to_mint = pool_balance.convert_to_shares(amount);
-
-        //function call
-        let shares_to_mint = execute_deposit(&e, &from, &pool_address, amount);
-
-        //assert
-        cvlr_assert!(
-            shares_to_mint == target_shares_to_mint
-        );
-    }
-
-    //execute_deposit(): increaes the amount of tokens in the pool
-    #[rule]
-    pub fn deposit_balances_change(e: &Env) {
-        let from: Address = nondet_address();
-        let pool_address: Address = nondet_address();
-        let amount: i128 = cvlr::nondet(); 
-        cvlr_assume!(amount == 1);
-        
-        //setup
-        
-        //set balances before
-        let from_balance_before :i128 = cvlr::nondet();
-        cvlr_assume!(from_balance_before < 100);
-        unsafe {GHOST_FROM_BALANCE = from_balance_before};
-        let from_balance_before_ghost = unsafe{GHOST_FROM_BALANCE};
-
-        let contract_balance_before :i128 = cvlr::nondet();
-        cvlr_assume!(contract_balance_before < 100);
-        unsafe {GHOST_TO_BALANCE = contract_balance_before};
-        let contract_balance_before_ghost = unsafe {GHOST_TO_BALANCE};
-
-        //function call
-        execute_deposit(&e, &from, &pool_address, amount);
-
-        //values after
-        let from_balance_after_ghost = unsafe {GHOST_FROM_BALANCE};
-        let contract_balance_after_ghost = unsafe {GHOST_TO_BALANCE};
-
-        //LOG:
-        clog!(amount as i64);
-        clog!(contract_balance_before_ghost as i64);
-        clog!(contract_balance_after_ghost as i64);
-
-        //assert
-        cvlr_assert!(from_balance_after_ghost == from_balance_before_ghost - amount);
-        cvlr_assert!(contract_balance_after_ghost == contract_balance_before_ghost + amount);
-    }
-
-    // execute_deposit(): updates emissions was called
-    #[rule]
-    pub fn deposit_update_emissions_called(e: &Env) {
-        let from: Address = nondet_address();
-        let pool_address: Address = nondet_address();
-        let amount: i128 = cvlr::nondet();
-        // // ensure the call enters the if statement
-        // let pool_balance = storage::get_pool_balance(e, &pool_address);
-        // cvlr_assume!(pool_balance.shares == 0);
-        
-        //function call
-        execute_deposit(&e, &from, &pool_address, amount);
-        //assert that update_emissions was called
-
-        cvlr_assert!(unsafe{GHOST_UPDATE_EMISSIONS_CALLED == true});
-
-  
-    }
+    //setup
     
+    //set balances before
+    let from_balance_before :i128 = cvlr::nondet();
+    cvlr_assume!(from_balance_before < 100);
+    unsafe {GHOST_FROM_BALANCE = from_balance_before};
+    let from_balance_before_ghost = unsafe{GHOST_FROM_BALANCE};
 
-    // execute_deposit(): reverts if amount is negativ
-     #[rule]
-    pub fn deposit_amount_negative(e: &Env, from: &Address, pool_address: &Address, amount: i128) {
-        //setup
-        cvlr_assume!(amount < 0);
+    let contract_balance_before :i128 = cvlr::nondet();
+    cvlr_assume!(contract_balance_before < 100);
+    unsafe {GHOST_TO_BALANCE = contract_balance_before};
+    let contract_balance_before_ghost = unsafe {GHOST_TO_BALANCE};
 
-        //function call
-        execute_deposit(&e, &from, &pool_address, amount);
+    //function call
+    execute_deposit(&e, &from, &pool_address, amount);
 
-        //assert this is never reached
-        cvlr_assert!(false);
-    }
+    //values after
+    let from_balance_after_ghost = unsafe {GHOST_FROM_BALANCE};
+    let contract_balance_after_ghost = unsafe {GHOST_TO_BALANCE};
+
+    //LOG:
+    clog!(amount as i64);
+    clog!(contract_balance_before_ghost as i64);
+    clog!(contract_balance_after_ghost as i64);
+
+    //assert
+    cvlr_assert!(from_balance_after_ghost == from_balance_before_ghost - amount);
+    cvlr_assert!(contract_balance_after_ghost == contract_balance_before_ghost + amount);
+}
+
+// execute_deposit(): updates emissions was called
+#[rule]
+pub fn deposit_update_emissions_called(e: &Env) {
+    let from: Address = nondet_address();
+    let pool_address: Address = nondet_address();
+    let amount: i128 = cvlr::nondet();
+    // // ensure the call enters the if statement
+    // let pool_balance = storage::get_pool_balance(e, &pool_address);
+    // cvlr_assume!(pool_balance.shares == 0);
     
-    // execute_deposit(): reverts if from address is pool_address or e.current_contract_address()
+    //function call
+    execute_deposit(&e, &from, &pool_address, amount);
+    //assert that update_emissions was called
+
+    cvlr_assert!(unsafe{GHOST_UPDATE_EMISSIONS_CALLED == true});
+
+
+}
+
+
+// execute_deposit(): reverts if amount is negativ
     #[rule]
-    pub fn deposit_from_pool_address(e: &Env, from: &Address, pool_address: &Address, amount: i128) {
-        //setup
-        cvlr_assume!(from == pool_address || from == &e.current_contract_address());
+pub fn deposit_amount_negative(e: &Env, from: &Address, pool_address: &Address, amount: i128) {
+    //setup
+    cvlr_assume!(amount < 0);
 
-        //function call
-        execute_deposit(&e, &from, &pool_address, amount);
+    //function call
+    execute_deposit(&e, &from, &pool_address, amount);
 
-        //assert this is never reached
-        cvlr_assert!(false);
-    }
-    
+    //assert this is never reached
+    cvlr_assert!(false);
+}
 
-//------------------------------- RULES OK END ------------------------------------
+// execute_deposit(): reverts if from address is pool_address or e.current_contract_address()
+#[rule]
+pub fn deposit_from_pool_address(e: &Env, from: &Address, pool_address: &Address, amount: i128) {
+    //setup
+    cvlr_assume!(from == pool_address || from == &e.current_contract_address());
 
-//------------------------------- INVARIENTS OK START-------------------------------
+    //function call
+    execute_deposit(&e, &from, &pool_address, amount);
 
-//------------------------------- INVARIENTS OK END-------------------------------
+    //assert this is never reached
+    cvlr_assert!(false);
+}
 
-//------------------------------- ISSUES OK START-------------------------------
 
-//------------------------------- ISSUES OK END-------------------------------
-
-//-------------------------------OLD RULES START----------------------------------
-
-    // // outer deposit function increases pool balance
-    // #[rule]
-    // pub fn outer_deposit(e: &Env, from: &Address, pool_address: &Address, amount: i128) {
-    //     //added:
-    //     cvlr_assume!(
-    //         e.storage().persistent().has(&from) && e.storage().persistent().has(&pool_address));
-    //     let pool_balance_before = storage::get_pool_balance(e, pool_address);
-    //     let pool_tokens_before = pool_balance_before.tokens;
-    //     let _to_mint = execute_deposit(&e, &from, &pool_address, amount);
-    //     let pool_balance_after = storage::get_pool_balance(e, pool_address);
-    //     let pool_tokens_after = pool_balance_after.tokens;
-    //     cvlr_assert!(
-    //         pool_tokens_after == pool_tokens_before + amount
-    //     );
-    //     // cvlr_satisfy!(true);
-    //     // cvlr_satisfy!(pool_tokens_after == pool_tokens_before + amount); //@audit can not give me a valid run
-    // }
-
-//-------------------------------OLD RULES END----------------------------------

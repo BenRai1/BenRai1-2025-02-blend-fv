@@ -44,9 +44,6 @@ pub fn pool_balance_sanity(pool_balance: &mut PoolBalance) {
 
 //------------------REUSABLE FUNCTIONS END------------------
 
-//------------------------- RULES TEST START -------------------------------------
-
-
    
     // load_pool_backstop_data() returns right blnd
     #[rule]
@@ -128,11 +125,6 @@ pub fn pool_balance_sanity(pool_balance: &mut PoolBalance) {
         cvlr_assert!(restult.usdc == target);
     }
     
-
-//------------------------- RULES TEST END -------------------------------------
-
-//------------------------- RULES OK START -------------------------------------
-
     // load_pool_backstop_data() retunrs q4w/shares ceiling if shares are not 0 (remiander)
     #[rule]
     pub fn load_pool_backstop_returns_q4w_pct(e: &Env) { 
@@ -240,7 +232,6 @@ pub fn pool_balance_sanity(pool_balance: &mut PoolBalance) {
 
         cvlr_satisfy!(unsafe{GHOST_IS_POOL == true});
     }
-
 
     // require_is_from_pool_factory() passes if balance != 0
     #[rule]
@@ -488,9 +479,6 @@ pub fn pool_balance_sanity(pool_balance: &mut PoolBalance) {
         cvlr_assert!(shares == tokens);
 
     }
-
-//------------------------- RULES OK END -------------------------------------
-
 
 
 //--------------------------- OLD RULES START ---------------------------

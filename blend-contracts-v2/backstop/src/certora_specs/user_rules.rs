@@ -4,7 +4,6 @@ use soroban_sdk::Env;
 
 use crate::{backstop::UserBalance, constants::MAX_Q4W_SIZE, constants::Q4W_LOCK_TIME};
 
-//------------------------- TEST RULES START -------------------------
 
     //add_shares() increases shares by amount, nothing else changes
     #[rule]
@@ -25,13 +24,6 @@ use crate::{backstop::UserBalance, constants::MAX_Q4W_SIZE, constants::Q4W_LOCK_
         cvlr_assert!(user_shares_after == user_shares_before + shares);
         cvlr_assert!(user_q4w_length_after == user_q4w_length_before);
     }
-
-
-
-
-//------------------------- TEST RULES END -------------------------
-
-//------------------------- RULES OK START -------------------------
 
     // dequeue_shares() if there is a rest, q4w is pushed to the back
     #[rule]
@@ -473,7 +465,6 @@ use crate::{backstop::UserBalance, constants::MAX_Q4W_SIZE, constants::Q4W_LOCK_
 
 
 
-//------------------------- RULES OK END -------------------------
 
 //------------------------- OLD RULES START -------------------------
 

@@ -99,8 +99,7 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
         PoolBackstopData {
             tokens: pool_balance.tokens,
             q4w_pct,
-            // blnd,
-            blnd: blnd +1,
+            blnd,
             usdc,
         }
     } else {
