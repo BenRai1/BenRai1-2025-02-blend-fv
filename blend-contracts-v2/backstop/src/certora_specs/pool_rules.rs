@@ -134,9 +134,9 @@ pub fn pool_balance_sanity(pool_balance: &mut PoolBalance) {
 
         //setup
         cvlr_assume!(pool_balance.shares > 0); // enter first if statement
-        cvlr_assume!(pool_balance.shares < 100); //prevent time out
+        cvlr_assume!(pool_balance.shares < 2000); //prevent time out
         // cvlr_assume!(pool_balance.tokens == 0); //skip second if statement
-        cvlr_assume!(pool_balance.q4w > 0 && pool_balance.q4w < 100); //prevent time out
+        cvlr_assume!(pool_balance.q4w > 0 && pool_balance.q4w < 10000); //prevent time out
 
         let target_q4w_pct = rounding::fixed_div_ceil(pool_balance.q4w, pool_balance.shares, SCALAR_7);
 
