@@ -19,10 +19,6 @@ pub fn execute_deposit(e: &Env, from: &Address, pool_address: &Address, amount: 
     let mut pool_balance = storage::get_pool_balance(e, pool_address);
     require_is_from_pool_factory(e, pool_address, pool_balance.shares);
     let mut user_balance = storage::get_user_balance(e, pool_address, from);
-    // //LOG
-    // clog!(amount as i64);
-    // clog!(user_balance.shares as i64);
-    // clog!(pool_balance.shares as i64);
 
     #[cfg(not(feature = "certora"))] //@audit added to skip the following line and prevent time outs
     emissions::update_emissions(e, pool_address, &pool_balance, from, &user_balance);
@@ -33,34 +29,12 @@ pub fn execute_deposit(e: &Env, from: &Address, pool_address: &Address, amount: 
 
     let backstop_token_client = TokenClient::new(e, &storage::get_backstop_token(e));
 
-    //------------------- added for LOGs start -----------------------
-    // //balance of user
-    // let balance_user_before = backstop_token_client.balance(from);
-    // clog!(balance_user_before as i64);
-    
-    // //balance of current contract
-    // let balance_contract_before = backstop_token_client.balance(&e.current_contract_address());
-    // clog!(balance_contract_before as i64);
-
-    //--------------- added for LOGs end -------------------------------
-
     #[cfg(not(feature = "certora"))] 
     backstop_token_client.transfer(from, &e.current_contract_address(), &amount);
 
     #[cfg(feature = "certora")] 
     transfer_mock(&from, &e.current_contract_address(), &amount); 
 
-
-    //------------------- added for LOGs start -----------------------
-    // //balance of user
-    // let balance_user_after = backstop_token_client.balance(from);
-    // clog!(balance_user_after as i64);
-    
-    // //balance of current contract
-    // let balance_contract_after = backstop_token_client.balance(&e.current_contract_address());
-    // clog!(balance_contract_after as i64);
-
-    //--------------- added for LOGs end -------------------------------
 
     let to_mint = pool_balance.convert_to_shares(amount);
     if to_mint <= 0 {
@@ -71,10 +45,6 @@ pub fn execute_deposit(e: &Env, from: &Address, pool_address: &Address, amount: 
 
     storage::set_pool_balance(e, pool_address, &pool_balance);
     storage::set_user_balance(e, pool_address, from, &user_balance);
-
-    // //LOG
-    // clog!(user_balance.shares as i64);
-    // clog!(pool_balance.shares as i64);
 
     to_mint
 }

@@ -20,13 +20,10 @@ pub fn execute_queue_withdrawal(
     pool_address: &Address,
     amount: i128,
 ) -> Q4W {
-    clog!(amount as i64); //@audit added to log
     require_nonnegative(e, amount);
 
     let mut pool_balance = storage::get_pool_balance(e, pool_address);
     let mut user_balance = storage::get_user_balance(e, pool_address, from);
-    // clog!(user_balance.shares as i64);
-    // clog!(user_balance.q4w.len() as i64);
 
 
     // update emissions
@@ -36,25 +33,12 @@ pub fn execute_queue_withdrawal(
     #[cfg(feature = "certora")]
     update_emissions_mock(e, pool_address, &pool_balance, from, &user_balance);
 
-
     user_balance.queue_shares_for_withdrawal(e, amount);
-
-    //logs
-    clog!(user_balance.q4w.last().unwrap_optimized().exp); //@audit added to log
-    clog!(user_balance.q4w.last().unwrap_optimized().amount as i64); //@audit added to log
-    clog!(user_balance.q4w.len() as i64); //@audit added to log
-    //
-
     pool_balance.queue_for_withdraw(amount);
 
     storage::set_user_balance(e, pool_address, from, &user_balance);
     storage::set_pool_balance(e, pool_address, &pool_balance);
 
-
-    //logs
-    // clog!(user_balance.q4w.last().unwrap_optimized().exp); //@audit added to log
-    // clog!(user_balance.q4w.last().unwrap_optimized().amount as i64); //@audit added to log
-    //
     user_balance.q4w.last().unwrap_optimized()
 }
 
@@ -64,10 +48,8 @@ pub fn execute_dequeue_withdrawal(e: &Env, from: &Address, pool_address: &Addres
 
     let mut pool_balance = storage::get_pool_balance(e, pool_address);
     let mut user_balance = storage::get_user_balance(e, pool_address, from);
-    clog!(user_balance.shares as i64); //@audit added to log
-    clog!(user_balance.q4w.len() as i64); //@audit added to log
 
-    // update emissions //@audit commented out to see if issue is in cfg
+    // update emissions 
      #[cfg(not(feature = "certora"))] 
     emissions::update_emissions(e, pool_address, &pool_balance, from, &user_balance);
 
@@ -80,8 +62,6 @@ pub fn execute_dequeue_withdrawal(e: &Env, from: &Address, pool_address: &Addres
 
     storage::set_user_balance(e, pool_address, from, &user_balance);
     storage::set_pool_balance(e, pool_address, &pool_balance);
-    clog!(user_balance.shares as i64); //@audit added to log
-    clog!(user_balance.q4w.len() as i64); //@audit added to log
 }
 
 /// Perform a withdraw from the backstop module
@@ -99,7 +79,6 @@ pub fn execute_withdraw(e: &Env, from: &Address, pool_address: &Address, amount:
     #[cfg(feature = "certora")]
     let to_return = unsafe{GHOST_TO_RETURN};
  
-    // clog!(to_return as i64); //@audit added to log
     if to_return == 0 {
         panic_with_error!(e, &BackstopError::InvalidTokenWithdrawAmount); 
     }

@@ -45,7 +45,6 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
     } else {
         0
     };
-    clog!(pool_balance.tokens as i64);
     if pool_balance.tokens > 0 {
         #[cfg(not(feature = "certora"))]
         let backstop_token = storage::get_backstop_token(e);
@@ -75,8 +74,6 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
         #[cfg(feature = "certora")]
         let blnd_per_tkn = unsafe{GHOST_BLND_PER_TOKEN}; //@audit preventing timeout and out of memory issues
 
-        clog!(blnd_per_tkn as i64);
-
         #[cfg(not(feature = "certora"))]
         let usdc_per_tkn = total_usdc.fixed_div_floor(total_comet_shares, SCALAR_7).unwrap_optimized();
         #[cfg(feature = "certora")]
@@ -87,8 +84,6 @@ pub fn load_pool_backstop_data(e: &Env, address: &Address) -> PoolBackstopData {
         let blnd = pool_balance.tokens.fixed_mul_floor(blnd_per_tkn, SCALAR_7).unwrap_optimized();
         #[cfg(feature = "certora")]
         let blnd = rounding::fixed_mul_floor(pool_balance.tokens, blnd_per_tkn, SCALAR_7);
-
-        clog!(blnd as i64);
 
         #[cfg(not(feature = "certora"))]
         let usdc = pool_balance.tokens.fixed_mul_floor(usdc_per_tkn, SCALAR_7).unwrap_optimized();
@@ -182,10 +177,6 @@ impl PoolBalance {
     /// ### Arguments
     /// * `tokens` - the token balance to convert
     pub fn convert_to_shares(&self, tokens: i128) -> i128 {
-        clog!(tokens as i64);
-        clog!(self.shares as i64);
-        clog!(self.tokens as i64);
-        clog!(self.q4w as i64);
         if self.shares == 0 {
             return tokens;
         }
@@ -200,10 +191,6 @@ impl PoolBalance {
     /// ### Arguments
     /// * `shares` - the pool share balance to convert
     pub fn convert_to_tokens(&self, shares: i128) -> i128 {
-        clog!(shares as i64);
-        clog!(self.shares as i64);
-        clog!(self.tokens as i64);
-        clog!(self.q4w as i64);
         if self.shares == 0 {
             return shares;
         }
@@ -215,11 +202,6 @@ impl PoolBalance {
 
     /// Determine the amount of effective tokens (not queued for withdrawal) in the pool
     pub fn non_queued_tokens(&self) -> i128 {
-        clog!(self.shares as i64); // LOG
-        clog!(self.tokens as i64); // LOG
-        clog!(self.q4w as i64); // LOG
-        let q4w_tokens = self.convert_to_tokens(self.q4w); // LOG
-        clog!(q4w_tokens as i64); // LOG
         self.tokens - self.convert_to_tokens(self.q4w)
     }
 
